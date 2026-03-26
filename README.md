@@ -1,6 +1,6 @@
-# Simple Omni Runtime
+# Acuity Runtime
 
-This repo contains a minimal FRAME runtime intended to be run with `polkadot-omni-node`.
+This repo contains a minimal FRAME runtime called `Acuity Runtime` (`acuity-runtime`), intended to be run with `polkadot-omni-node`.
 
 ## Build the runtime
 
@@ -10,14 +10,14 @@ cargo build --release
 
 This produces the wasm blob at:
 
-`target/release/wbuild/simple-omni-runtime/simple_omni_runtime.wasm`
+`target/release/wbuild/acuity-runtime/acuity_runtime.wasm`
 
 ## Generate a chain spec
 
 ```bash
-polkadot-omni-node chain-spec-builder create \
+  polkadot-omni-node chain-spec-builder create \
   --relay-chain rococo-local \
-  --runtime target/release/wbuild/simple-omni-runtime/simple_omni_runtime.wasm \
+  --runtime target/release/wbuild/acuity-runtime/acuity_runtime.wasm \
   named-preset development > chain_spec.json
 ```
 

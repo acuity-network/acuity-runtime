@@ -65,8 +65,8 @@ pub mod genesis_config_presets {
 
 #[runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-    spec_name: alloc::borrow::Cow::Borrowed("simple-omni-runtime"),
-    impl_name: alloc::borrow::Cow::Borrowed("simple-omni-runtime"),
+    spec_name: alloc::borrow::Cow::Borrowed("acuity-runtime"),
+    impl_name: alloc::borrow::Cow::Borrowed("acuity-runtime"),
     authoring_version: 1,
     spec_version: 1,
     impl_version: 1,
