@@ -8,6 +8,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.7.5", default-features = false, features = ["derive"] }
+pallet-content = { git = "https://github.com/acuity-network/pallet-content", branch = "master", default-features = false }
 polkadot-sdk = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2512-3", default-features = false, features = [
     "runtime",
     "cumulus-primitives-core",
@@ -31,6 +32,7 @@ polkadot-sdk = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "
 default = ["std"]
 std = [
     "codec/std",
+    "pallet-content/std",
     "polkadot-sdk/std",
     "scale-info/std",
     "serde_json/std",

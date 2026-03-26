@@ -135,10 +135,15 @@ mod runtime {
 
     #[runtime::pallet_index(6)]
     pub type TransactionPayment = pallet_transaction_payment::Pallet<Runtime>;
+
+    #[runtime::pallet_index(7)]
+    pub type Content = pallet_content::Pallet<Runtime>;
 }
 
 parameter_types! {
     pub const Version: RuntimeVersion = VERSION;
+    pub const MaxParents: u32 = 32;
+    pub const MaxLinks: u32 = 128;
 }
 
 #[derive_impl(frame_system::config_preludes::SolochainDefaultConfig)]
@@ -178,6 +183,12 @@ impl pallet_transaction_payment::Config for Runtime {
     type OnChargeTransaction = pallet_transaction_payment::FungibleAdapter<Balances, ()>;
     type WeightToFee = NoFee<<Self as pallet_balances::Config>::Balance>;
     type LengthToFee = FixedFee<1, <Self as pallet_balances::Config>::Balance>;
+}
+
+impl pallet_content::Config for Runtime {
+    type WeightInfo = pallet_content::weights::SubstrateWeight<Runtime>;
+    type MaxParents = MaxParents;
+    type MaxLinks = MaxLinks;
 }
 
 type Block = frame::runtime::types_common::BlockOf<Runtime, TxExtension>;

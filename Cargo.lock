@@ -16,6 +16,7 @@ dependencies = [
 name = "acuity-runtime"
 version = "0.1.0"
 dependencies = [
+ "pallet-content",
  "parity-scale-codec",
  "polkadot-sdk",
  "scale-info",
@@ -5333,6 +5334,17 @@ dependencies = [
  "scale-info",
  "sp-core",
  "sp-runtime",
+]
+
+[[package]]
+name = "pallet-content"
+version = "0.1.0"
+source = "git+https://github.com/acuity-network/pallet-content?branch=master#27e5f01b18f197277a2364368e9f9bcc5c250c9e"
+dependencies = [
+ "log",
+ "parity-scale-codec",
+ "polkadot-sdk",
+ "scale-info",
 ]
 
 [[package]]
