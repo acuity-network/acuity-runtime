@@ -63,6 +63,8 @@ pub mod genesis_config_presets {
     }
 }
 
+pub mod weights;
+
 #[runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: alloc::borrow::Cow::Borrowed("acuity-runtime"),
@@ -151,11 +153,13 @@ impl frame_system::Config for Runtime {
     type Block = Block;
     type Version = Version;
     type AccountData = pallet_balances::AccountData<<Runtime as pallet_balances::Config>::Balance>;
+    type SystemWeightInfo = weights::frame_system::WeightInfo<Runtime>;
 }
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Runtime {
     type AccountStore = System;
+    type WeightInfo = weights::pallet_balances::WeightInfo<Runtime>;
 }
 
 impl pallet_aura::Config for Runtime {
@@ -186,15 +190,51 @@ impl pallet_transaction_payment::Config for Runtime {
 }
 
 impl pallet_content::Config for Runtime {
-    type WeightInfo = pallet_content::weights::SubstrateWeight<Runtime>;
+    type WeightInfo = weights::pallet_content::WeightInfo<Runtime>;
     type MaxParents = MaxParents;
     type MaxLinks = MaxLinks;
 }
+
+#[cfg(feature = "runtime-benchmarks")]
+impl frame_system_benchmarking::Config for Runtime {}
 
 type Block = frame::runtime::types_common::BlockOf<Runtime, TxExtension>;
 type Header = HeaderFor<Runtime>;
 type RuntimeExecutive =
     Executive<Runtime, Block, frame_system::ChainContext<Runtime>, Runtime, AllPalletsWithSystem>;
+
+#[cfg(feature = "runtime-benchmarks")]
+mod benches {
+    use super::*;
+    use frame_support::traits::{StorageInfo, WhitelistedStorageKeys};
+    use polkadot_sdk::frame_system_benchmarking::Pallet as SystemBench;
+
+    polkadot_sdk::frame_benchmarking::define_benchmarks!(
+        [frame_system, SystemBench::<Runtime>]
+        [pallet_balances, Balances]
+        [pallet_content, Content]
+    );
+
+    pub fn benchmark_metadata(
+        extra: bool,
+    ) -> (Vec<frame_benchmarking::BenchmarkList>, Vec<StorageInfo>) {
+        let mut list = Vec::<frame_benchmarking::BenchmarkList>::new();
+        list_benchmarks!(list, extra);
+
+        let storage_info = AllPalletsWithSystem::storage_info();
+        (list, storage_info)
+    }
+
+    pub fn dispatch_benchmark(
+        config: frame_benchmarking::BenchmarkConfig,
+    ) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, alloc::string::String> {
+        let whitelist = AllPalletsWithSystem::whitelisted_storage_keys();
+        let mut batches = Vec::<frame_benchmarking::BenchmarkBatch>::new();
+        let params = (&&config, &whitelist);
+        add_benchmarks!(params, batches);
+        Ok(batches)
+    }
+}
 
 impl_runtime_apis! {
     impl apis::Core<Block> for Runtime {
@@ -330,6 +370,24 @@ impl_runtime_apis! {
 
         fn preset_names() -> Vec<PresetId> {
             self::genesis_config_presets::preset_names()
+        }
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    impl frame_benchmarking::Benchmark<Block> for Runtime {
+        fn benchmark_metadata(
+            extra: bool,
+        ) -> (
+            Vec<frame_benchmarking::BenchmarkList>,
+            Vec<frame_support::traits::StorageInfo>,
+        ) {
+            benches::benchmark_metadata(extra)
+        }
+
+        fn dispatch_benchmark(
+            config: frame_benchmarking::BenchmarkConfig,
+        ) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, alloc::string::String> {
+            benches::dispatch_benchmark(config)
         }
     }
 }
