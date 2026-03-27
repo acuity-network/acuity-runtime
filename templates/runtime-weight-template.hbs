@@ -22,15 +22,7 @@ use frame_support::{traits::Get, weights::{constants::RocksDbWeight, Weight}};
 
 pub struct WeightInfo<T>(PhantomData<T>);
 
-{{#if (eq pallet "frame_system")}}
-impl<T: frame_system::Config> frame_system::weights::WeightInfo for WeightInfo<T> {
-{{/if}}
-{{#if (eq pallet "pallet_balances")}}
-impl<T: frame_system::Config> pallet_balances::weights::WeightInfo for WeightInfo<T> {
-{{/if}}
-{{#if (eq pallet "pallet_content")}}
-impl<T: frame_system::Config> pallet_content::weights::WeightInfo for WeightInfo<T> {
-{{/if}}
+impl<T: frame_system::Config> {{pallet}}::weights::WeightInfo for WeightInfo<T> {
 	{{#each benchmarks as |benchmark|}}
 	{{#each benchmark.comments as |comment|}}
 	/// {{comment}}
@@ -41,10 +33,10 @@ impl<T: frame_system::Config> pallet_content::weights::WeightInfo for WeightInfo
 	fn {{benchmark.name~}}
 	(
 		{{#if (eq benchmark.name "publish_item")}}
-		_parents: u32, _links: u32,
+		_parents: u32, _links: u32, _mentions: u32,
 		{{else}}
 			{{#if (eq benchmark.name "publish_revision")}}
-		_links: u32,
+		_links: u32, _mentions: u32,
 			{{else}}
 		{{~#each benchmark.components as |c| ~}}
 		{{c.name}}: u32, {{/each~}}

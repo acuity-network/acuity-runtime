@@ -140,12 +140,25 @@ mod runtime {
 
     #[runtime::pallet_index(7)]
     pub type Content = pallet_content::Pallet<Runtime>;
+
+    #[runtime::pallet_index(8)]
+    pub type AccountContent = pallet_account_content::Pallet<Runtime>;
+
+    #[runtime::pallet_index(9)]
+    pub type AccountProfile = pallet_account_profile::Pallet<Runtime>;
+
+    #[runtime::pallet_index(10)]
+    pub type ContentReactions = pallet_content_reactions::Pallet<Runtime>;
 }
 
 parameter_types! {
     pub const Version: RuntimeVersion = VERSION;
+    pub const ItemIdNamespace: u32 = 1000;
     pub const MaxParents: u32 = 32;
     pub const MaxLinks: u32 = 128;
+    pub const MaxMentions: u32 = 256;
+    pub const MaxItemsPerAccount: u32 = 1024;
+    pub const MaxEmojis: u32 = 16;
 }
 
 #[derive_impl(frame_system::config_preludes::SolochainDefaultConfig)]
@@ -191,8 +204,27 @@ impl pallet_transaction_payment::Config for Runtime {
 
 impl pallet_content::Config for Runtime {
     type WeightInfo = weights::pallet_content::WeightInfo<Runtime>;
+    type ItemIdNamespace = ItemIdNamespace;
     type MaxParents = MaxParents;
     type MaxLinks = MaxLinks;
+    type MaxMentions = MaxMentions;
+}
+
+impl pallet_account_content::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = weights::pallet_account_content::WeightInfo<Runtime>;
+    type MaxItemsPerAccount = MaxItemsPerAccount;
+}
+
+impl pallet_account_profile::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = weights::pallet_account_profile::WeightInfo<Runtime>;
+}
+
+impl pallet_content_reactions::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = weights::pallet_content_reactions::WeightInfo<Runtime>;
+    type MaxEmojis = MaxEmojis;
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -211,8 +243,11 @@ mod benches {
 
     polkadot_sdk::frame_benchmarking::define_benchmarks!(
         [frame_system, SystemBench::<Runtime>]
+        [pallet_account_content, AccountContent]
+        [pallet_account_profile, AccountProfile]
         [pallet_balances, Balances]
         [pallet_content, Content]
+        [pallet_content_reactions, ContentReactions]
     );
 
     pub fn benchmark_metadata(
