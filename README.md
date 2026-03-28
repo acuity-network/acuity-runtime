@@ -15,16 +15,41 @@ This produces the wasm blob at:
 ## Generate a chain spec
 
 ```bash
-  polkadot-omni-node chain-spec-builder create \
+polkadot-omni-node chain-spec-builder \
+  --chain-spec-path target/dev-chain-spec.json \
+  create \
   --relay-chain rococo-local \
   --runtime target/release/wbuild/acuity-runtime/acuity_runtime.wasm \
-  named-preset development > chain_spec.json
+  named-preset development
 ```
 
 ## Run with Omni Node
 
+Use the helper script to rebuild the runtime, regenerate the chain spec, and start a local dev node:
+
 ```bash
-polkadot-omni-node --chain chain_spec.json --dev --dev-block-time 1000
+./scripts/start-dev-node.sh
+```
+
+The script writes a fresh chain spec to `target/dev-chain-spec.json` and starts `polkadot-omni-node` with `--dev`, `--dev-block-time 1000`, and `--blocks-pruning archive-canonical`.
+
+If you want to run the steps manually instead, use:
+
+```bash
+cargo build --release
+
+polkadot-omni-node chain-spec-builder \
+  --chain-spec-path target/dev-chain-spec.json \
+  create \
+  --relay-chain rococo-local \
+  --runtime target/release/wbuild/acuity-runtime/acuity_runtime.wasm \
+  named-preset development
+
+polkadot-omni-node \
+  --chain target/dev-chain-spec.json \
+  --dev \
+  --dev-block-time 1000 \
+  --blocks-pruning archive-canonical
 ```
 
 The node will run in dev/manual-seal style mode and produce blocks locally.
