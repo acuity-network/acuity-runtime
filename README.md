@@ -5,7 +5,7 @@ This repo contains a minimal FRAME runtime called `Acuity Runtime` (`acuity-runt
 ## Build the runtime
 
 ```bash
-cargo build --release
+just build
 ```
 
 This produces the wasm blob at:
@@ -15,28 +15,29 @@ This produces the wasm blob at:
 ## Generate a chain spec
 
 ```bash
-polkadot-omni-node chain-spec-builder \
-  --chain-spec-path target/dev-chain-spec.json \
-  create \
-  --relay-chain rococo-local \
-  --runtime target/release/wbuild/acuity-runtime/acuity_runtime.wasm \
-  named-preset development
+just chain-spec
 ```
 
 ## Run with Omni Node
 
-Use the helper script to rebuild the runtime, regenerate the chain spec, and start a local dev node:
+Use `just` to rebuild the runtime, regenerate the chain spec, and start a local dev node:
 
 ```bash
-./scripts/start-dev-node.sh
+just dev-node
 ```
 
-The script writes a fresh chain spec to `target/dev-chain-spec.json` and starts `polkadot-omni-node` with `--dev`, `--dev-block-time 1000`, and `--blocks-pruning archive-canonical`.
+The recipe writes a fresh chain spec to `target/dev-chain-spec.json` and starts `polkadot-omni-node` with `--dev`, `--dev-block-time 1000`, and `--blocks-pruning archive-canonical`.
 
-If you want to run the steps manually instead, use:
+If you want to see the available commands, use:
 
 ```bash
-cargo build --release
+just --list
+```
+
+The underlying manual steps are:
+
+```bash
+just build
 
 polkadot-omni-node chain-spec-builder \
   --chain-spec-path target/dev-chain-spec.json \
@@ -72,13 +73,13 @@ Use this flow:
 
 1. Build a benchmark-enabled Wasm runtime.
 2. List available benchmarks.
-3. Run the benchmark script to benchmark all pallets and write runtime-ready weight code.
+3. Run the benchmark recipe to benchmark all pallets and write runtime-ready weight code.
 
 Example commands:
 
 ```bash
 # 1) Build benchmark-enabled runtime
-cargo build --release --features runtime-benchmarks
+just build-benchmarks
 
 # 2) List available pallet/extrinsic benchmarks
 frame-omni-bencher v1 benchmark pallet \
@@ -86,17 +87,17 @@ frame-omni-bencher v1 benchmark pallet \
   --list=all
 
 # 3) Benchmark all runtime pallets and write weight files into src/weights
-./scripts/benchmark-runtime.sh
+just benchmark
 
 # 4) Verify runtime still builds with generated weights
-cargo build --release
+just build
 ```
 
 ### Notes
 
 - `--steps` controls how many points are sampled across benchmark ranges.
 - `--repeat` controls how many in-Wasm repetitions are run per sampled point.
-- The script benchmarks `frame_system`, `pallet_balances`, and `pallet_content` together from this runtime Wasm.
+- The benchmark recipe runs `frame-omni-bencher` against the built runtime Wasm and writes generated files into `src/weights`.
 - The script uses `templates/runtime-weight-template.hbs`, which is runtime-specific and emits code that compiles in this runtime without post-processing.
 - Generated files are written directly to `src/weights/frame_system.rs`, `src/weights/pallet_balances.rs`, and `src/weights/pallet_content.rs`.
 - If upstream fixes `frame-benchmarking` on your chosen `polkadot-sdk` tag, you can remove the temporary auto-patch in `build.rs`.
