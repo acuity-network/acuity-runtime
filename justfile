@@ -30,7 +30,7 @@ build-benchmarks:
     cargo build --release --features runtime-benchmarks
 
 chain-spec: build
-    if ! command -v polkadot-omni-node >/dev/null 2>&1; then printf 'error: polkadot-omni-node is not installed or not on PATH\n' >&2; exit 1; fi
+    if ((which polkadot-omni-node | length) == 0) { error make { msg: 'polkadot-omni-node is not installed or not on PATH' } }
     polkadot-omni-node chain-spec-builder \
       --chain-spec-path {{chain_spec}} \
       create \
@@ -39,7 +39,7 @@ chain-spec: build
       named-preset development
 
 dev-node: chain-spec
-    if ! command -v polkadot-omni-node >/dev/null 2>&1; then printf 'error: polkadot-omni-node is not installed or not on PATH\n' >&2; exit 1; fi
+    if ((which polkadot-omni-node | length) == 0) { error make { msg: 'polkadot-omni-node is not installed or not on PATH' } }
     polkadot-omni-node \
       --chain {{chain_spec}} \
       --dev \
@@ -47,7 +47,7 @@ dev-node: chain-spec
       --blocks-pruning archive-canonical
 
 benchmark:
-    if ! command -v frame-omni-bencher >/dev/null 2>&1; then printf 'error: frame-omni-bencher is not installed or not on PATH\n' >&2; exit 1; fi
+    if ((which frame-omni-bencher | length) == 0) { error make { msg: 'frame-omni-bencher is not installed or not on PATH' } }
     cargo build --release --features runtime-benchmarks
     frame-omni-bencher v1 benchmark pallet \
       --runtime {{runtime_wasm}} \
