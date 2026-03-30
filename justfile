@@ -1,10 +1,27 @@
-set shell := ["bash", "-euo", "pipefail", "-c"]
+set shell := ["nu", "-c"]
 
 runtime_wasm := "target/release/wbuild/acuity-runtime/acuity_runtime.wasm"
 chain_spec := "target/dev-chain-spec.json"
 
 default:
-    @just --list
+    @just _task-selector
+
+_task-selector:
+    #!/usr/bin/env nu
+    let selected_task = (
+        just --summary -u
+        | split row ' '
+        | to text
+        | fzf --header 'Available recipes' --header-first --layout reverse --preview 'just --show {}'
+        | if ($in | is-empty) { 'about' } else { $in }
+    )
+    just $selected_task
+
+menu:
+    @just _task-selector
+
+@about:
+    just --list
 
 build:
     cargo build --release
