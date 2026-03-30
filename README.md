@@ -42,6 +42,7 @@ just build
 polkadot-omni-node chain-spec-builder \
   --chain-spec-path target/dev-chain-spec.json \
   create \
+  -t development \
   --relay-chain rococo-local \
   --runtime target/release/wbuild/acuity-runtime/acuity_runtime.wasm \
   named-preset development
@@ -54,6 +55,7 @@ polkadot-omni-node \
 ```
 
 The node will run in dev/manual-seal style mode and produce blocks locally.
+The chain-spec command prints the output path when generation completes.
 
 ## Benchmark with frame-omni-bencher
 

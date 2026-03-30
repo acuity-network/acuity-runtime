@@ -34,9 +34,11 @@ chain-spec: build
     polkadot-omni-node chain-spec-builder \
       --chain-spec-path {{chain_spec}} \
       create \
+      -t development \
       --relay-chain rococo-local \
       --runtime {{runtime_wasm}} \
       named-preset development
+    print $'Wrote chain spec to {{chain_spec}}'
 
 dev-node: chain-spec
     if ((which polkadot-omni-node | length) == 0) { error make { msg: 'polkadot-omni-node is not installed or not on PATH' } }
