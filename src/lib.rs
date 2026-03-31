@@ -15,6 +15,7 @@ use polkadot_sdk::{
     },
     staging_parachain_info as parachain_info, *,
 };
+use sp_session::OpaqueGeneratedSessionKeys;
 
 pub mod genesis_config_presets {
     use super::*;
@@ -348,7 +349,7 @@ impl_runtime_apis! {
     }
 
     impl apis::SessionKeys<Block> for Runtime {
-        fn generate_session_keys(_: Option<Vec<u8>>) -> Vec<u8> {
+        fn generate_session_keys(_: Vec<u8>, _: Option<Vec<u8>>) -> OpaqueGeneratedSessionKeys {
             Default::default()
         }
 
