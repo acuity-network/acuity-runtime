@@ -6,6 +6,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 extern crate alloc;
 
 use alloc::vec::Vec;
+use frame_support::weights::ConstantMultiplier;
 use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
 use polkadot_sdk::{
     polkadot_sdk_frame::{
@@ -203,7 +204,7 @@ impl pallet_timestamp::Config for Runtime {
 impl pallet_transaction_payment::Config for Runtime {
     type OnChargeTransaction = pallet_transaction_payment::FungibleAdapter<Balances, ()>;
     type WeightToFee = NoFee<<Self as pallet_balances::Config>::Balance>;
-    type LengthToFee = FixedFee<1, <Self as pallet_balances::Config>::Balance>;
+    type LengthToFee = ConstantMultiplier<<Self as pallet_balances::Config>::Balance, ConstU64<1>>;
 }
 
 impl pallet_content::Config for Runtime {
@@ -448,4 +449,400 @@ pub mod interface {
     pub type Nonce = <Runtime as frame_system::Config>::Nonce;
     pub type Hash = <Runtime as frame_system::Config>::Hash;
     pub type Balance = <Runtime as pallet_balances::Config>::Balance;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use codec::Encode;
+    use frame_support::{assert_noop, assert_ok};
+    use pallet_content::{IpfsHash, ItemId, Nonce, RETRACTABLE, REVISIONABLE};
+    use pallet_content_reactions::Emoji;
+    use polkadot_sdk::{
+        frame_support::BoundedVec, sp_application_crypto::Ss58Codec, sp_keyring::Sr25519Keyring,
+        sp_runtime::BuildStorage,
+    };
+    use serde_json::Value;
+
+    type AccountId = interface::AccountId;
+
+    fn alice() -> AccountId {
+        Sr25519Keyring::Alice.to_account_id()
+    }
+
+    fn bob() -> AccountId {
+        Sr25519Keyring::Bob.to_account_id()
+    }
+
+    fn charlie() -> AccountId {
+        Sr25519Keyring::Charlie.to_account_id()
+    }
+
+    fn new_test_ext() -> sp_io::TestExternalities {
+        let mut storage = frame_system::GenesisConfig::<Runtime>::default()
+            .build_storage()
+            .expect("frame system storage builds");
+
+        RuntimeGenesisConfig {
+            balances: BalancesConfig {
+                balances: vec![
+                    (alice(), 1_000_000_000_000_000),
+                    (bob(), 1_000_000_000_000_000),
+                    (charlie(), 1_000_000_000_000_000),
+                ],
+                dev_accounts: None,
+            },
+            aura: pallet_aura::GenesisConfig {
+                authorities: vec![Sr25519Keyring::Alice.public().into()],
+            },
+            parachain_system: ParachainSystemConfig {
+                parachain_id: cumulus_primitives_core::ParaId::new(1000),
+                _config: Default::default(),
+            },
+            sudo: SudoConfig { key: Some(alice()) },
+            ..Default::default()
+        }
+        .assimilate_storage(&mut storage)
+        .expect("runtime genesis assimilates");
+
+        let mut ext = sp_io::TestExternalities::new(storage);
+        ext.execute_with(|| System::set_block_number(1));
+        ext
+    }
+
+    fn item_id_for(account: &AccountId, nonce: Nonce) -> ItemId {
+        let mut item_id = ItemId::default();
+        item_id.0.copy_from_slice(&sp_io::hashing::blake2_256(
+            &[
+                account.encode(),
+                nonce.encode(),
+                ItemIdNamespace::get().encode(),
+            ]
+            .concat(),
+        ));
+        item_id
+    }
+
+    fn publish_item(owner: AccountId, nonce: Nonce, flags: u8) -> ItemId {
+        let item_id = item_id_for(&owner, nonce.clone());
+        assert_ok!(Content::publish_item(
+            RuntimeOrigin::signed(owner),
+            nonce,
+            Default::default(),
+            flags,
+            Default::default(),
+            Default::default(),
+            IpfsHash::default(),
+        ));
+        item_id
+    }
+
+    #[test]
+    fn development_genesis_preset_contains_expected_values() {
+        let patch = genesis_config_presets::development_config_genesis();
+
+        assert_eq!(
+            patch["balances"]["balances"],
+            Value::Array(vec![
+                Value::Array(vec![
+                    Value::String(alice().to_ss58check()),
+                    Value::Number(1_000_000_000_000_000u64.into()),
+                ]),
+                Value::Array(vec![
+                    Value::String(bob().to_ss58check()),
+                    Value::Number(1_000_000_000_000_000u64.into()),
+                ]),
+            ])
+        );
+        assert_eq!(
+            patch["parachainSystem"]["parachainId"],
+            Value::Number(1000u64.into())
+        );
+        assert_eq!(patch["sudo"]["key"], Value::String(alice().to_ss58check()));
+        assert_eq!(
+            patch["aura"]["authorities"].as_array().map(Vec::len),
+            Some(1)
+        );
+    }
+
+    #[test]
+    fn genesis_preset_helpers_expose_development_preset() {
+        let names = genesis_config_presets::preset_names();
+        assert_eq!(
+            names,
+            vec![PresetId::from(sp_genesis_builder::DEV_RUNTIME_PRESET)]
+        );
+
+        let preset = genesis_config_presets::get_preset(&PresetId::from(
+            sp_genesis_builder::DEV_RUNTIME_PRESET,
+        ))
+        .expect("development preset exists");
+        let parsed: Value = serde_json::from_slice(&preset).expect("preset bytes are valid json");
+        assert_eq!(parsed["sudo"]["key"], Value::String(alice().to_ss58check()));
+
+        assert_eq!(
+            genesis_config_presets::get_preset(&PresetId::from("unknown-preset")),
+            None
+        );
+    }
+
+    #[test]
+    fn runtime_version_and_native_version_are_consistent() {
+        assert_eq!(VERSION.spec_name.as_ref(), "acuity-runtime");
+        assert_eq!(VERSION.impl_name.as_ref(), "acuity-runtime");
+        assert_eq!(VERSION.spec_version, 1);
+        assert_eq!(VERSION.transaction_version, 1);
+
+        let native = native_version();
+        assert_eq!(native.runtime_version, VERSION);
+    }
+
+    #[test]
+    fn runtime_constants_match_expected_configuration() {
+        assert_eq!(ItemIdNamespace::get(), 1000);
+        assert_eq!(MaxParents::get(), 32);
+        assert_eq!(MaxLinks::get(), 128);
+        assert_eq!(MaxMentions::get(), 256);
+        assert_eq!(MaxItemsPerAccount::get(), 1024);
+        assert_eq!(MaxEmojis::get(), 16);
+    }
+
+    #[test]
+    fn runtime_metadata_and_configuration_are_available() {
+        new_test_ext().execute_with(|| {
+            let metadata = Runtime::metadata();
+            assert!(!metadata.encode().is_empty());
+            assert!(!Runtime::metadata_versions().is_empty());
+
+            assert_eq!(
+                ParachainSystem::parachain_id(),
+                cumulus_primitives_core::ParaId::new(1000)
+            );
+            assert_eq!(
+                pallet_aura::Authorities::<Runtime>::get().into_inner(),
+                vec![Sr25519Keyring::Alice.public().into()]
+            );
+            assert_eq!(Aura::slot_duration(), MILLI_SECS_PER_BLOCK);
+        });
+    }
+
+    #[test]
+    fn transaction_payment_uses_zero_weight_fee_and_linear_length_fee() {
+        new_test_ext().execute_with(|| {
+            assert_eq!(
+                TransactionPayment::weight_to_fee(Weight::from_parts(999, 0)),
+                0
+            );
+            assert_eq!(TransactionPayment::length_to_fee(1), 1);
+            assert_eq!(TransactionPayment::length_to_fee(7), 7);
+            assert_eq!(TransactionPayment::length_to_fee(1024), 1024);
+        });
+    }
+
+    #[test]
+    fn content_flow_works_in_runtime() {
+        new_test_ext().execute_with(|| {
+            let nonce = Nonce::default();
+            let item_id = item_id_for(&alice(), nonce.clone());
+            let mention: BoundedVec<AccountId, MaxMentions> = vec![bob()].try_into().unwrap();
+
+            assert_ok!(Content::publish_item(
+                RuntimeOrigin::signed(alice()),
+                nonce,
+                Default::default(),
+                REVISIONABLE | RETRACTABLE,
+                Default::default(),
+                mention.clone(),
+                IpfsHash([1; 32]),
+            ));
+
+            System::assert_has_event(
+                pallet_content::Event::<Runtime>::PublishItem {
+                    item_id: item_id.clone(),
+                    owner: alice(),
+                    parents: Default::default(),
+                    flags: REVISIONABLE | RETRACTABLE,
+                }
+                .into(),
+            );
+
+            assert_ok!(Content::publish_revision(
+                RuntimeOrigin::signed(alice()),
+                item_id.clone(),
+                Default::default(),
+                Default::default(),
+                IpfsHash([2; 32]),
+            ));
+            assert_eq!(
+                pallet_content::ItemState::<Runtime>::get(&item_id)
+                    .unwrap()
+                    .revision_id,
+                1
+            );
+
+            assert_ok!(Content::retract_item(
+                RuntimeOrigin::signed(alice()),
+                item_id.clone(),
+            ));
+            assert!(
+                pallet_content::ItemState::<Runtime>::get(&item_id)
+                    .unwrap()
+                    .flags
+                    & pallet_content::RETRACTED
+                    != 0
+            );
+
+            assert_noop!(
+                Content::publish_revision(
+                    RuntimeOrigin::signed(alice()),
+                    item_id,
+                    Default::default(),
+                    Default::default(),
+                    IpfsHash([3; 32]),
+                ),
+                pallet_content::Error::<Runtime>::ItemRetracted
+            );
+        });
+    }
+
+    #[test]
+    fn account_content_and_profile_integrate_with_content_ownership() {
+        new_test_ext().execute_with(|| {
+            let item_id = publish_item(alice(), Nonce::default(), REVISIONABLE);
+
+            assert_ok!(AccountContent::add_item(
+                RuntimeOrigin::signed(alice()),
+                item_id.clone(),
+            ));
+            assert_eq!(AccountContent::get_item_count(alice()), 1);
+            assert!(AccountContent::get_item_exists(alice(), item_id.clone()));
+
+            assert_ok!(AccountProfile::set_profile(
+                RuntimeOrigin::signed(alice()),
+                item_id.clone(),
+            ));
+            assert_eq!(
+                pallet_account_profile::AccountProfile::<Runtime>::get(alice()),
+                Some(item_id.clone())
+            );
+
+            assert_noop!(
+                AccountContent::add_item(RuntimeOrigin::signed(bob()), item_id.clone()),
+                pallet_account_content::Error::<Runtime>::WrongAccount
+            );
+            assert_noop!(
+                AccountProfile::set_profile(RuntimeOrigin::signed(bob()), item_id.clone()),
+                pallet_account_profile::Error::<Runtime>::WrongAccount
+            );
+
+            assert_ok!(AccountContent::remove_item(
+                RuntimeOrigin::signed(alice()),
+                item_id.clone(),
+            ));
+            assert_eq!(AccountContent::get_item_count(alice()), 0);
+            assert!(!AccountContent::get_item_exists(alice(), item_id));
+        });
+    }
+
+    #[test]
+    fn content_reactions_track_revisions_and_limits() {
+        new_test_ext().execute_with(|| {
+            let item_id = publish_item(alice(), Nonce::default(), REVISIONABLE);
+            assert_ok!(Content::publish_revision(
+                RuntimeOrigin::signed(alice()),
+                item_id.clone(),
+                Default::default(),
+                Default::default(),
+                IpfsHash([9; 32]),
+            ));
+
+            assert_ok!(ContentReactions::add_reaction(
+                RuntimeOrigin::signed(bob()),
+                item_id.clone(),
+                0,
+                Emoji(0x1F600),
+            ));
+            assert_ok!(ContentReactions::add_reaction(
+                RuntimeOrigin::signed(bob()),
+                item_id.clone(),
+                1,
+                Emoji(0x1F389),
+            ));
+
+            assert_eq!(
+                pallet_content_reactions::ItemAccountReactions::<Runtime>::get((
+                    item_id.clone(),
+                    0,
+                    bob()
+                ))
+                .unwrap()
+                .into_inner(),
+                vec![Emoji(0x1F600)]
+            );
+            assert_eq!(
+                pallet_content_reactions::ItemAccountReactions::<Runtime>::get((
+                    item_id.clone(),
+                    1,
+                    bob()
+                ))
+                .unwrap()
+                .into_inner(),
+                vec![Emoji(0x1F389)]
+            );
+
+            for value in 0x1F601..=0x1F610 {
+                assert_ok!(ContentReactions::add_reaction(
+                    RuntimeOrigin::signed(charlie()),
+                    item_id.clone(),
+                    0,
+                    Emoji(value),
+                ));
+            }
+
+            assert_noop!(
+                ContentReactions::add_reaction(
+                    RuntimeOrigin::signed(charlie()),
+                    item_id.clone(),
+                    0,
+                    Emoji(0x1F680),
+                ),
+                pallet_content_reactions::Error::<Runtime>::TooManyEmojis
+            );
+
+            assert_ok!(ContentReactions::remove_reaction(
+                RuntimeOrigin::signed(bob()),
+                item_id.clone(),
+                0,
+                Emoji(0x1F600),
+            ));
+            assert_eq!(
+                pallet_content_reactions::ItemAccountReactions::<Runtime>::get((
+                    item_id.clone(),
+                    0,
+                    bob()
+                )),
+                None
+            );
+            assert_eq!(
+                pallet_content_reactions::ItemAccountReactions::<Runtime>::get((item_id, 1, bob()))
+                    .unwrap()
+                    .into_inner(),
+                vec![Emoji(0x1F389)]
+            );
+        });
+    }
+
+    #[test]
+    fn content_bounds_match_runtime_limits() {
+        new_test_ext().execute_with(|| {
+            let too_many_mentions: Vec<_> = (0..=MaxMentions::get()).map(|_| bob()).collect();
+            assert!(BoundedVec::<AccountId, MaxMentions>::try_from(too_many_mentions).is_err());
+
+            let too_many_parents = vec![ItemId([1; 32]); (MaxParents::get() + 1) as usize];
+            assert!(BoundedVec::<ItemId, MaxParents>::try_from(too_many_parents).is_err());
+
+            let too_many_links = vec![ItemId([2; 32]); (MaxLinks::get() + 1) as usize];
+            assert!(BoundedVec::<ItemId, MaxLinks>::try_from(too_many_links).is_err());
+        });
+    }
 }
