@@ -46,7 +46,8 @@ dev-node: chain-spec
       --chain {{chain_spec}} \
       --dev \
       --dev-block-time 1000 \
-      --blocks-pruning archive-canonical
+      --blocks-pruning archive-canonical \
+      --state-pruning archive-canonical
 
 benchmark:
     if ((which frame-omni-bencher | length) == 0) { error make { msg: 'frame-omni-bencher is not installed or not on PATH' } }
