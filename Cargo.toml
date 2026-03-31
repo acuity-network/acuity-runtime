@@ -15,6 +15,7 @@ pallet-account-profile = { git = "https://github.com/acuity-network/pallet-conte
 pallet-balances = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2512-3", default-features = false }
 pallet-content = { git = "https://github.com/acuity-network/pallet-content", branch = "master", default-features = false }
 pallet-content-reactions = { git = "https://github.com/acuity-network/pallet-content", branch = "master", default-features = false }
+pallet-utility = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2512-3", default-features = false }
 polkadot-sdk = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2512-3", default-features = false, features = [
     "runtime",
     "cumulus-primitives-core",
@@ -24,6 +25,7 @@ polkadot-sdk = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "
     "pallet-timestamp",
     "pallet-transaction-payment",
     "pallet-transaction-payment-rpc-runtime-api",
+    "pallet-utility",
     "sp-consensus-aura",
     "sp-keyring",
     "staging-parachain-info",
@@ -52,6 +54,7 @@ std = [
     "pallet-balances/std",
     "pallet-content/std",
     "pallet-content-reactions/std",
+    "pallet-utility/std",
     "polkadot-sdk/std",
     "scale-info/std",
     "serde_json/std",

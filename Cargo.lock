@@ -23,6 +23,7 @@ dependencies = [
  "pallet-balances",
  "pallet-content",
  "pallet-content-reactions",
+ "pallet-utility",
  "parity-scale-codec",
  "polkadot-sdk",
  "scale-info",

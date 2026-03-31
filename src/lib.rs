@@ -149,6 +149,9 @@ mod runtime {
 
     #[runtime::pallet_index(10)]
     pub type ContentReactions = pallet_content_reactions::Pallet<Runtime>;
+
+    #[runtime::pallet_index(11)]
+    pub type Utility = pallet_utility::Pallet<Runtime>;
 }
 
 parameter_types! {
@@ -225,6 +228,13 @@ impl pallet_content_reactions::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type WeightInfo = weights::pallet_content_reactions::WeightInfo<Runtime>;
     type MaxEmojis = MaxEmojis;
+}
+
+impl pallet_utility::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type RuntimeCall = RuntimeCall;
+    type PalletsOrigin = OriginCaller;
+    type WeightInfo = ();
 }
 
 #[cfg(feature = "runtime-benchmarks")]
