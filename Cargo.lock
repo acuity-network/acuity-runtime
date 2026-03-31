@@ -8159,7 +8159,7 @@ dependencies = [
 [[package]]
 name = "pallet-account-content"
 version = "0.1.0"
-source = "git+https://github.com/acuity-network/pallet-content?branch=master#43f143507e4a98d04fab0870b3381e94e9ab678d"
+source = "git+https://github.com/acuity-network/pallet-content?branch=master#cb1d9e194a2a5c629662724de89f226b43117805"
 dependencies = [
  "log",
  "pallet-content",
@@ -8171,7 +8171,7 @@ dependencies = [
 [[package]]
 name = "pallet-account-profile"
 version = "0.1.0"
-source = "git+https://github.com/acuity-network/pallet-content?branch=master#43f143507e4a98d04fab0870b3381e94e9ab678d"
+source = "git+https://github.com/acuity-network/pallet-content?branch=master#cb1d9e194a2a5c629662724de89f226b43117805"
 dependencies = [
  "log",
  "pallet-content",
@@ -8698,7 +8698,7 @@ dependencies = [
 [[package]]
 name = "pallet-content"
 version = "0.1.0"
-source = "git+https://github.com/acuity-network/pallet-content?branch=master#43f143507e4a98d04fab0870b3381e94e9ab678d"
+source = "git+https://github.com/acuity-network/pallet-content?branch=master#cb1d9e194a2a5c629662724de89f226b43117805"
 dependencies = [
  "log",
  "parity-scale-codec",
@@ -8709,7 +8709,7 @@ dependencies = [
 [[package]]
 name = "pallet-content-reactions"
 version = "0.1.0"
-source = "git+https://github.com/acuity-network/pallet-content?branch=master#43f143507e4a98d04fab0870b3381e94e9ab678d"
+source = "git+https://github.com/acuity-network/pallet-content?branch=master#cb1d9e194a2a5c629662724de89f226b43117805"
 dependencies = [
  "log",
  "pallet-content",
