@@ -46,7 +46,6 @@ dev-node: chain-spec
       --chain {{chain_spec}} \
       --dev \
       --dev-block-time 1000 \
-      --blocks-pruning archive-canonical \
       --state-pruning archive-canonical
 
 benchmark:
