@@ -8229,7 +8229,7 @@ dependencies = [
 [[package]]
 name = "pallet-account-content"
 version = "0.1.0"
-source = "git+https://github.com/acuity-network/pallet-content?branch=polkadot-stable2603#e309de047540ac7c7fe7b6e0a901f13872d10005"
+source = "git+https://github.com/acuity-network/pallet-content?branch=polkadot-stable2603#bc61bc0ac56efec398e49645660dd8b2032b5d5f"
 dependencies = [
  "log",
  "pallet-content",
@@ -8241,7 +8241,7 @@ dependencies = [
 [[package]]
 name = "pallet-account-profile"
 version = "0.1.0"
-source = "git+https://github.com/acuity-network/pallet-content?branch=polkadot-stable2603#e309de047540ac7c7fe7b6e0a901f13872d10005"
+source = "git+https://github.com/acuity-network/pallet-content?branch=polkadot-stable2603#bc61bc0ac56efec398e49645660dd8b2032b5d5f"
 dependencies = [
  "log",
  "pallet-content",
@@ -8781,7 +8781,7 @@ dependencies = [
 [[package]]
 name = "pallet-content"
 version = "0.1.0"
-source = "git+https://github.com/acuity-network/pallet-content?branch=polkadot-stable2603#e309de047540ac7c7fe7b6e0a901f13872d10005"
+source = "git+https://github.com/acuity-network/pallet-content?branch=polkadot-stable2603#bc61bc0ac56efec398e49645660dd8b2032b5d5f"
 dependencies = [
  "log",
  "parity-scale-codec",
@@ -8792,7 +8792,7 @@ dependencies = [
 [[package]]
 name = "pallet-content-reactions"
 version = "0.1.0"
-source = "git+https://github.com/acuity-network/pallet-content?branch=polkadot-stable2603#e309de047540ac7c7fe7b6e0a901f13872d10005"
+source = "git+https://github.com/acuity-network/pallet-content?branch=polkadot-stable2603#bc61bc0ac56efec398e49645660dd8b2032b5d5f"
 dependencies = [
  "log",
  "pallet-content",
