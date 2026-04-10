@@ -176,6 +176,8 @@ impl frame_system::Config for Runtime {
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Runtime {
+    type Balance = u128;
+    type ExistentialDeposit = ConstU128<1>;
     type AccountStore = System;
     type WeightInfo = weights::pallet_balances::WeightInfo<Runtime>;
 }
@@ -204,7 +206,7 @@ impl pallet_timestamp::Config for Runtime {
 impl pallet_transaction_payment::Config for Runtime {
     type OnChargeTransaction = pallet_transaction_payment::FungibleAdapter<Balances, ()>;
     type WeightToFee = NoFee<<Self as pallet_balances::Config>::Balance>;
-    type LengthToFee = ConstantMultiplier<<Self as pallet_balances::Config>::Balance, ConstU64<1>>;
+    type LengthToFee = ConstantMultiplier<<Self as pallet_balances::Config>::Balance, ConstU128<1>>;
 }
 
 impl pallet_content::Config for Runtime {
