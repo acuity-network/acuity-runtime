@@ -208,3 +208,11 @@ Integration tests in `src/lib.rs` cover:
 6. **Account content/profile** — ownership verification, add/remove items, set profile
 7. **Content reactions** — per-revision tracking, emoji limits, removal
 8. **Content bounds** — BoundedVec limits for parents, links, mentions
+9. **Balances** — transfers, insufficient balance, existential deposit
+10. **Sudo** — genesis key is set correctly
+11. **Content error paths** — invalid flags, duplicate publish, set_not_revisionable, set_not_retractable, wrong owner, nonexistent item
+12. **Account content error paths** — duplicate add, remove not-added, retracted item rejection
+13. **Account profile overwrites** — profile pointer can be replaced
+14. **Content reactions error paths** — nonexistent item/revision, invalid emoji, duplicate no-op, remove absent, retracted item
+15. **Utility batch** — batch dispatch of multiple calls
+16. **Account balance tracking** — free balance updates after transfers

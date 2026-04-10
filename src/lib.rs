@@ -461,8 +461,10 @@ mod tests {
     use pallet_content::{IpfsHash, ItemId, Nonce, RETRACTABLE, REVISIONABLE};
     use pallet_content_reactions::Emoji;
     use polkadot_sdk::{
-        frame_support::BoundedVec, sp_application_crypto::Ss58Codec, sp_keyring::Sr25519Keyring,
-        sp_runtime::BuildStorage,
+        frame_support::BoundedVec,
+        sp_application_crypto::Ss58Codec,
+        sp_keyring::Sr25519Keyring,
+        sp_runtime::{BuildStorage, DispatchError, TokenError},
     };
     use serde_json::Value;
 
@@ -510,6 +512,12 @@ mod tests {
         let mut ext = sp_io::TestExternalities::new(storage);
         ext.execute_with(|| System::set_block_number(1));
         ext
+    }
+
+    fn nonce_from_byte(b: u8) -> Nonce {
+        let mut bytes = [0u8; 32];
+        bytes[0] = b;
+        codec::Decode::decode(&mut &bytes[..]).unwrap()
     }
 
     fn item_id_for(account: &AccountId, nonce: Nonce) -> ItemId {
@@ -845,6 +853,474 @@ mod tests {
 
             let too_many_links = vec![ItemId([2; 32]); (MaxLinks::get() + 1) as usize];
             assert!(BoundedVec::<ItemId, MaxLinks>::try_from(too_many_links).is_err());
+        });
+    }
+
+    #[test]
+    fn balances_transfer_and_existential_deposit() {
+        new_test_ext().execute_with(|| {
+            let initial = Balances::free_balance(alice());
+            assert_eq!(initial, 1_000_000_000_000_000);
+
+            assert_ok!(Balances::transfer_allow_death(
+                RuntimeOrigin::signed(alice()),
+                bob().into(),
+                500,
+            ));
+            assert_eq!(Balances::free_balance(alice()), initial - 500);
+            assert_eq!(Balances::free_balance(bob()), 1_000_000_000_000_000 + 500);
+
+            assert_eq!(Balances::free_balance(charlie()), 1_000_000_000_000_000);
+            assert_noop!(
+                Balances::transfer_allow_death(
+                    RuntimeOrigin::signed(charlie()),
+                    alice().into(),
+                    1_000_000_000_000_001,
+                ),
+                DispatchError::Token(TokenError::FundsUnavailable)
+            );
+
+            let new_account: AccountId = sp_runtime::AccountId32::from([0x42u8; 32]).into();
+            assert_ok!(Balances::transfer_allow_death(
+                RuntimeOrigin::signed(alice()),
+                new_account.clone().into(),
+                1,
+            ));
+            assert_eq!(Balances::free_balance(new_account), 1);
+        });
+    }
+
+    #[test]
+    fn sudo_key_is_set_in_genesis() {
+        new_test_ext().execute_with(|| {
+            assert_eq!(pallet_sudo::Key::<Runtime>::get(), Some(alice()));
+        });
+    }
+
+    #[test]
+    fn content_publish_with_invalid_flags_fails() {
+        new_test_ext().execute_with(|| {
+            assert_noop!(
+                Content::publish_item(
+                    RuntimeOrigin::signed(alice()),
+                    Nonce::default(),
+                    Default::default(),
+                    0b111,
+                    Default::default(),
+                    Default::default(),
+                    IpfsHash::default(),
+                ),
+                pallet_content::Error::<Runtime>::InvalidFlags
+            );
+        });
+    }
+
+    #[test]
+    fn content_duplicate_publish_fails() {
+        new_test_ext().execute_with(|| {
+            let nonce = Nonce::default();
+            assert_ok!(Content::publish_item(
+                RuntimeOrigin::signed(alice()),
+                nonce.clone(),
+                Default::default(),
+                REVISIONABLE | RETRACTABLE,
+                Default::default(),
+                Default::default(),
+                IpfsHash::default(),
+            ));
+
+            assert_noop!(
+                Content::publish_item(
+                    RuntimeOrigin::signed(alice()),
+                    nonce,
+                    Default::default(),
+                    REVISIONABLE | RETRACTABLE,
+                    Default::default(),
+                    Default::default(),
+                    IpfsHash::default(),
+                ),
+                pallet_content::Error::<Runtime>::ItemAlreadyExists
+            );
+        });
+    }
+
+    #[test]
+    fn content_set_not_revisionable_blocks_future_revisions() {
+        new_test_ext().execute_with(|| {
+            let item_id = publish_item(alice(), Nonce::default(), REVISIONABLE);
+
+            assert_ok!(Content::publish_revision(
+                RuntimeOrigin::signed(alice()),
+                item_id.clone(),
+                Default::default(),
+                Default::default(),
+                IpfsHash([2; 32]),
+            ));
+
+            assert_ok!(Content::set_not_revisionable(
+                RuntimeOrigin::signed(alice()),
+                item_id.clone(),
+            ));
+
+            assert_noop!(
+                Content::publish_revision(
+                    RuntimeOrigin::signed(alice()),
+                    item_id.clone(),
+                    Default::default(),
+                    Default::default(),
+                    IpfsHash([3; 32]),
+                ),
+                pallet_content::Error::<Runtime>::ItemNotRevisionable
+            );
+
+            assert_noop!(
+                Content::set_not_revisionable(RuntimeOrigin::signed(alice()), item_id.clone()),
+                pallet_content::Error::<Runtime>::ItemNotRevisionable
+            );
+        });
+    }
+
+    #[test]
+    fn content_set_not_retractable_blocks_retraction() {
+        new_test_ext().execute_with(|| {
+            let item_id = publish_item(alice(), Nonce::default(), RETRACTABLE);
+
+            assert_ok!(Content::set_not_retractable(
+                RuntimeOrigin::signed(alice()),
+                item_id.clone(),
+            ));
+
+            assert_noop!(
+                Content::retract_item(RuntimeOrigin::signed(alice()), item_id.clone()),
+                pallet_content::Error::<Runtime>::ItemNotRetractable
+            );
+
+            assert_noop!(
+                Content::set_not_retractable(RuntimeOrigin::signed(alice()), item_id.clone()),
+                pallet_content::Error::<Runtime>::ItemNotRetractable
+            );
+        });
+    }
+
+    #[test]
+    fn content_wrong_owner_cannot_revise_or_retract() {
+        new_test_ext().execute_with(|| {
+            let item_id = publish_item(alice(), Nonce::default(), REVISIONABLE | RETRACTABLE);
+
+            assert_noop!(
+                Content::publish_revision(
+                    RuntimeOrigin::signed(bob()),
+                    item_id.clone(),
+                    Default::default(),
+                    Default::default(),
+                    IpfsHash([2; 32]),
+                ),
+                pallet_content::Error::<Runtime>::WrongAccount
+            );
+
+            assert_noop!(
+                Content::retract_item(RuntimeOrigin::signed(bob()), item_id.clone()),
+                pallet_content::Error::<Runtime>::WrongAccount
+            );
+
+            assert_noop!(
+                Content::set_not_revisionable(RuntimeOrigin::signed(bob()), item_id.clone()),
+                pallet_content::Error::<Runtime>::WrongAccount
+            );
+
+            assert_noop!(
+                Content::set_not_retractable(RuntimeOrigin::signed(bob()), item_id),
+                pallet_content::Error::<Runtime>::WrongAccount
+            );
+        });
+    }
+
+    #[test]
+    fn content_nonexistent_item_errors() {
+        new_test_ext().execute_with(|| {
+            let fake_id = ItemId([0xAB; 32]);
+
+            assert_noop!(
+                Content::publish_revision(
+                    RuntimeOrigin::signed(alice()),
+                    fake_id.clone(),
+                    Default::default(),
+                    Default::default(),
+                    IpfsHash::default(),
+                ),
+                pallet_content::Error::<Runtime>::ItemNotFound
+            );
+
+            assert_noop!(
+                Content::retract_item(RuntimeOrigin::signed(alice()), fake_id.clone()),
+                pallet_content::Error::<Runtime>::ItemNotFound
+            );
+        });
+    }
+
+    #[test]
+    fn account_content_duplicate_add_fails() {
+        new_test_ext().execute_with(|| {
+            let item_id = publish_item(alice(), Nonce::default(), REVISIONABLE);
+
+            assert_ok!(AccountContent::add_item(
+                RuntimeOrigin::signed(alice()),
+                item_id.clone(),
+            ));
+            assert_eq!(AccountContent::get_item_count(alice()), 1);
+
+            assert_noop!(
+                AccountContent::add_item(RuntimeOrigin::signed(alice()), item_id.clone()),
+                pallet_account_content::Error::<Runtime>::ItemAlreadyAdded
+            );
+            assert_eq!(AccountContent::get_item_count(alice()), 1);
+        });
+    }
+
+    #[test]
+    fn account_content_remove_not_added_fails() {
+        new_test_ext().execute_with(|| {
+            let item_id = publish_item(alice(), Nonce::default(), REVISIONABLE);
+
+            assert_noop!(
+                AccountContent::remove_item(RuntimeOrigin::signed(alice()), item_id),
+                pallet_account_content::Error::<Runtime>::ItemNotAdded
+            );
+        });
+    }
+
+    #[test]
+    fn account_content_retracted_item_cannot_be_added() {
+        new_test_ext().execute_with(|| {
+            let item_id = publish_item(alice(), Nonce::default(), RETRACTABLE);
+
+            assert_ok!(Content::retract_item(
+                RuntimeOrigin::signed(alice()),
+                item_id.clone(),
+            ));
+
+            assert_noop!(
+                AccountContent::add_item(RuntimeOrigin::signed(alice()), item_id.clone()),
+                pallet_account_content::Error::<Runtime>::ItemRetracted
+            );
+
+            assert_noop!(
+                AccountProfile::set_profile(RuntimeOrigin::signed(alice()), item_id),
+                pallet_account_profile::Error::<Runtime>::ItemRetracted
+            );
+        });
+    }
+
+    #[test]
+    fn account_profile_can_be_overwritten() {
+        new_test_ext().execute_with(|| {
+            let item_id_1 = publish_item(alice(), nonce_from_byte(0), REVISIONABLE);
+            let item_id_2 = publish_item(alice(), nonce_from_byte(1), REVISIONABLE);
+
+            assert_ok!(AccountProfile::set_profile(
+                RuntimeOrigin::signed(alice()),
+                item_id_1.clone(),
+            ));
+            assert_eq!(
+                pallet_account_profile::AccountProfile::<Runtime>::get(alice()),
+                Some(item_id_1.clone())
+            );
+
+            assert_ok!(AccountProfile::set_profile(
+                RuntimeOrigin::signed(alice()),
+                item_id_2.clone(),
+            ));
+            assert_eq!(
+                pallet_account_profile::AccountProfile::<Runtime>::get(alice()),
+                Some(item_id_2)
+            );
+        });
+    }
+
+    #[test]
+    fn content_reactions_nonexistent_item_and_revision_errors() {
+        new_test_ext().execute_with(|| {
+            let fake_id = ItemId([0xCC; 32]);
+
+            assert_noop!(
+                ContentReactions::add_reaction(
+                    RuntimeOrigin::signed(bob()),
+                    fake_id.clone(),
+                    0,
+                    Emoji(0x1F600),
+                ),
+                pallet_content_reactions::Error::<Runtime>::ItemNotFound
+            );
+
+            let item_id = publish_item(alice(), Nonce::default(), REVISIONABLE);
+
+            assert_noop!(
+                ContentReactions::add_reaction(
+                    RuntimeOrigin::signed(bob()),
+                    item_id.clone(),
+                    1,
+                    Emoji(0x1F600),
+                ),
+                pallet_content_reactions::Error::<Runtime>::RevisionNotFound
+            );
+        });
+    }
+
+    #[test]
+    fn content_reactions_invalid_emoji_fails() {
+        new_test_ext().execute_with(|| {
+            let item_id = publish_item(alice(), Nonce::default(), REVISIONABLE);
+
+            assert_noop!(
+                ContentReactions::add_reaction(
+                    RuntimeOrigin::signed(bob()),
+                    item_id.clone(),
+                    0,
+                    Emoji(0),
+                ),
+                pallet_content_reactions::Error::<Runtime>::InvalidEmoji
+            );
+
+            assert_noop!(
+                ContentReactions::add_reaction(
+                    RuntimeOrigin::signed(bob()),
+                    item_id.clone(),
+                    0,
+                    Emoji(0xD800),
+                ),
+                pallet_content_reactions::Error::<Runtime>::InvalidEmoji
+            );
+
+            assert_noop!(
+                ContentReactions::remove_reaction(
+                    RuntimeOrigin::signed(bob()),
+                    item_id,
+                    0,
+                    Emoji(0),
+                ),
+                pallet_content_reactions::Error::<Runtime>::InvalidEmoji
+            );
+        });
+    }
+
+    #[test]
+    fn content_reactions_duplicate_emoji_is_noop() {
+        new_test_ext().execute_with(|| {
+            let item_id = publish_item(alice(), Nonce::default(), REVISIONABLE);
+
+            assert_ok!(ContentReactions::add_reaction(
+                RuntimeOrigin::signed(bob()),
+                item_id.clone(),
+                0,
+                Emoji(0x1F600),
+            ));
+            assert_ok!(ContentReactions::add_reaction(
+                RuntimeOrigin::signed(bob()),
+                item_id.clone(),
+                0,
+                Emoji(0x1F600),
+            ));
+            assert_eq!(
+                pallet_content_reactions::ItemAccountReactions::<Runtime>::get((item_id, 0, bob()))
+                    .unwrap()
+                    .into_inner(),
+                vec![Emoji(0x1F600)]
+            );
+        });
+    }
+
+    #[test]
+    fn content_reactions_remove_absent_is_noop() {
+        new_test_ext().execute_with(|| {
+            let item_id = publish_item(alice(), Nonce::default(), REVISIONABLE);
+
+            assert_ok!(ContentReactions::remove_reaction(
+                RuntimeOrigin::signed(bob()),
+                item_id.clone(),
+                0,
+                Emoji(0x1F600),
+            ));
+
+            assert_eq!(
+                pallet_content_reactions::ItemAccountReactions::<Runtime>::get((item_id, 0, bob())),
+                None
+            );
+        });
+    }
+
+    #[test]
+    fn content_reactions_retracted_item_errors() {
+        new_test_ext().execute_with(|| {
+            let item_id = publish_item(alice(), Nonce::default(), RETRACTABLE);
+
+            assert_ok!(Content::retract_item(
+                RuntimeOrigin::signed(alice()),
+                item_id.clone(),
+            ));
+
+            assert_noop!(
+                ContentReactions::add_reaction(
+                    RuntimeOrigin::signed(bob()),
+                    item_id.clone(),
+                    0,
+                    Emoji(0x1F600),
+                ),
+                pallet_content_reactions::Error::<Runtime>::ItemRetracted
+            );
+
+            assert_noop!(
+                ContentReactions::remove_reaction(
+                    RuntimeOrigin::signed(bob()),
+                    item_id,
+                    0,
+                    Emoji(0x1F600),
+                ),
+                pallet_content_reactions::Error::<Runtime>::ItemRetracted
+            );
+        });
+    }
+
+    #[test]
+    fn utility_batch_dispatch_works() {
+        new_test_ext().execute_with(|| {
+            let item_id_1 = publish_item(alice(), nonce_from_byte(0), REVISIONABLE);
+            let item_id_2 = publish_item(alice(), nonce_from_byte(1), REVISIONABLE);
+
+            let call_1 =
+                RuntimeCall::AccountContent(pallet_account_content::Call::<Runtime>::add_item {
+                    item_id: item_id_1.clone(),
+                });
+            let call_2 =
+                RuntimeCall::AccountContent(pallet_account_content::Call::<Runtime>::add_item {
+                    item_id: item_id_2.clone(),
+                });
+
+            assert_ok!(Utility::batch(
+                RuntimeOrigin::signed(alice()),
+                vec![call_1, call_2],
+            ));
+
+            assert_eq!(AccountContent::get_item_count(alice()), 2);
+            assert!(AccountContent::get_item_exists(alice(), item_id_1));
+            assert!(AccountContent::get_item_exists(alice(), item_id_2));
+        });
+    }
+
+    #[test]
+    fn account_nonce_reflects_free_balance() {
+        new_test_ext().execute_with(|| {
+            let initial_alice = Balances::free_balance(alice());
+            let initial_charlie = Balances::free_balance(charlie());
+
+            assert_ok!(Balances::transfer_allow_death(
+                RuntimeOrigin::signed(alice()),
+                charlie().into(),
+                1000,
+            ));
+            assert_eq!(Balances::free_balance(alice()), initial_alice - 1000);
+            assert_eq!(Balances::free_balance(charlie()), initial_charlie + 1000);
+
+            assert_eq!(System::account_nonce(alice()), 0);
         });
     }
 }
