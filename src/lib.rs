@@ -464,7 +464,7 @@ mod tests {
         frame_support::BoundedVec,
         sp_application_crypto::Ss58Codec,
         sp_keyring::Sr25519Keyring,
-        sp_runtime::{BuildStorage, DispatchError, TokenError},
+        sp_runtime::{bounded_vec, BuildStorage, DispatchError, TokenError},
     };
     use serde_json::Value;
 
@@ -766,79 +766,76 @@ mod tests {
                 IpfsHash([9; 32]),
             ));
 
-            assert_ok!(ContentReactions::add_reaction(
+            assert_ok!(ContentReactions::set_reactions(
                 RuntimeOrigin::signed(bob()),
                 item_id.clone(),
                 0,
-                Emoji(0x1F600),
+                bounded_vec![Emoji(0x1F600)],
             ));
-            assert_ok!(ContentReactions::add_reaction(
+            assert_ok!(ContentReactions::set_reactions(
                 RuntimeOrigin::signed(bob()),
                 item_id.clone(),
                 1,
-                Emoji(0x1F389),
+                bounded_vec![Emoji(0x1F389)],
             ));
 
-            assert_eq!(
-                pallet_content_reactions::ItemAccountReactions::<Runtime>::get((
-                    item_id.clone(),
-                    0,
-                    bob()
-                ))
-                .unwrap()
-                .into_inner(),
-                vec![Emoji(0x1F600)]
+            System::assert_has_event(
+                pallet_content_reactions::Event::<Runtime>::SetReactions {
+                    item_id: item_id.clone(),
+                    revision_id: 0,
+                    item_owner: alice(),
+                    reactor: bob(),
+                    reactions: bounded_vec![Emoji(0x1F600)],
+                }
+                .into(),
             );
-            assert_eq!(
-                pallet_content_reactions::ItemAccountReactions::<Runtime>::get((
-                    item_id.clone(),
-                    1,
-                    bob()
-                ))
-                .unwrap()
-                .into_inner(),
-                vec![Emoji(0x1F389)]
+            System::assert_has_event(
+                pallet_content_reactions::Event::<Runtime>::SetReactions {
+                    item_id: item_id.clone(),
+                    revision_id: 1,
+                    item_owner: alice(),
+                    reactor: bob(),
+                    reactions: bounded_vec![Emoji(0x1F389)],
+                }
+                .into(),
             );
 
-            for value in 0x1F601..=0x1F610 {
-                assert_ok!(ContentReactions::add_reaction(
-                    RuntimeOrigin::signed(charlie()),
-                    item_id.clone(),
-                    0,
-                    Emoji(value),
-                ));
-            }
+            let many_emojis: BoundedVec<Emoji, MaxEmojis> = (0x1F601..=0x1F610)
+                .map(Emoji)
+                .collect::<Vec<_>>()
+                .try_into()
+                .unwrap();
+            assert_ok!(ContentReactions::set_reactions(
+                RuntimeOrigin::signed(charlie()),
+                item_id.clone(),
+                0,
+                many_emojis,
+            ));
 
+            let duplicate_emojis: BoundedVec<Emoji, MaxEmojis> =
+                vec![Emoji(0x1F600), Emoji(0x1F600)].try_into().unwrap();
             assert_noop!(
-                ContentReactions::add_reaction(
+                ContentReactions::set_reactions(
                     RuntimeOrigin::signed(charlie()),
                     item_id.clone(),
                     0,
-                    Emoji(0x1F680),
+                    duplicate_emojis,
                 ),
-                pallet_content_reactions::Error::<Runtime>::TooManyEmojis
+                pallet_content_reactions::Error::<Runtime>::DuplicateEmoji
             );
 
-            assert_ok!(ContentReactions::remove_reaction(
+            assert_ok!(ContentReactions::set_reactions(
                 RuntimeOrigin::signed(bob()),
                 item_id.clone(),
                 0,
-                Emoji(0x1F600),
+                bounded_vec![],
             ));
-            assert_eq!(
-                pallet_content_reactions::ItemAccountReactions::<Runtime>::get((
-                    item_id.clone(),
-                    0,
-                    bob()
-                )),
-                None
-            );
-            assert_eq!(
-                pallet_content_reactions::ItemAccountReactions::<Runtime>::get((item_id, 1, bob()))
-                    .unwrap()
-                    .into_inner(),
-                vec![Emoji(0x1F389)]
-            );
+            assert_ok!(ContentReactions::set_reactions(
+                RuntimeOrigin::signed(bob()),
+                item_id,
+                1,
+                bounded_vec![Emoji(0x1F389)],
+            ));
         });
     }
 
@@ -1143,11 +1140,11 @@ mod tests {
             let fake_id = ItemId([0xCC; 32]);
 
             assert_noop!(
-                ContentReactions::add_reaction(
+                ContentReactions::set_reactions(
                     RuntimeOrigin::signed(bob()),
                     fake_id.clone(),
                     0,
-                    Emoji(0x1F600),
+                    bounded_vec![Emoji(0x1F600)],
                 ),
                 pallet_content_reactions::Error::<Runtime>::ItemNotFound
             );
@@ -1155,11 +1152,11 @@ mod tests {
             let item_id = publish_item(alice(), Nonce::default(), REVISIONABLE);
 
             assert_noop!(
-                ContentReactions::add_reaction(
+                ContentReactions::set_reactions(
                     RuntimeOrigin::signed(bob()),
                     item_id.clone(),
                     1,
-                    Emoji(0x1F600),
+                    bounded_vec![Emoji(0x1F600)],
                 ),
                 pallet_content_reactions::Error::<Runtime>::RevisionNotFound
             );
@@ -1172,31 +1169,21 @@ mod tests {
             let item_id = publish_item(alice(), Nonce::default(), REVISIONABLE);
 
             assert_noop!(
-                ContentReactions::add_reaction(
+                ContentReactions::set_reactions(
                     RuntimeOrigin::signed(bob()),
                     item_id.clone(),
                     0,
-                    Emoji(0),
+                    bounded_vec![Emoji(0)],
                 ),
                 pallet_content_reactions::Error::<Runtime>::InvalidEmoji
             );
 
             assert_noop!(
-                ContentReactions::add_reaction(
+                ContentReactions::set_reactions(
                     RuntimeOrigin::signed(bob()),
                     item_id.clone(),
                     0,
-                    Emoji(0xD800),
-                ),
-                pallet_content_reactions::Error::<Runtime>::InvalidEmoji
-            );
-
-            assert_noop!(
-                ContentReactions::remove_reaction(
-                    RuntimeOrigin::signed(bob()),
-                    item_id,
-                    0,
-                    Emoji(0),
+                    bounded_vec![Emoji(0xD800)],
                 ),
                 pallet_content_reactions::Error::<Runtime>::InvalidEmoji
             );
@@ -1208,23 +1195,20 @@ mod tests {
         new_test_ext().execute_with(|| {
             let item_id = publish_item(alice(), Nonce::default(), REVISIONABLE);
 
-            assert_ok!(ContentReactions::add_reaction(
+            assert_ok!(ContentReactions::set_reactions(
                 RuntimeOrigin::signed(bob()),
                 item_id.clone(),
                 0,
-                Emoji(0x1F600),
+                bounded_vec![Emoji(0x1F600)],
             ));
-            assert_ok!(ContentReactions::add_reaction(
-                RuntimeOrigin::signed(bob()),
-                item_id.clone(),
-                0,
-                Emoji(0x1F600),
-            ));
-            assert_eq!(
-                pallet_content_reactions::ItemAccountReactions::<Runtime>::get((item_id, 0, bob()))
-                    .unwrap()
-                    .into_inner(),
-                vec![Emoji(0x1F600)]
+            assert_noop!(
+                ContentReactions::set_reactions(
+                    RuntimeOrigin::signed(bob()),
+                    item_id.clone(),
+                    0,
+                    bounded_vec![Emoji(0x1F600), Emoji(0x1F600)],
+                ),
+                pallet_content_reactions::Error::<Runtime>::DuplicateEmoji
             );
         });
     }
@@ -1234,17 +1218,12 @@ mod tests {
         new_test_ext().execute_with(|| {
             let item_id = publish_item(alice(), Nonce::default(), REVISIONABLE);
 
-            assert_ok!(ContentReactions::remove_reaction(
+            assert_ok!(ContentReactions::set_reactions(
                 RuntimeOrigin::signed(bob()),
                 item_id.clone(),
                 0,
-                Emoji(0x1F600),
+                bounded_vec![],
             ));
-
-            assert_eq!(
-                pallet_content_reactions::ItemAccountReactions::<Runtime>::get((item_id, 0, bob())),
-                None
-            );
         });
     }
 
@@ -1259,21 +1238,21 @@ mod tests {
             ));
 
             assert_noop!(
-                ContentReactions::add_reaction(
+                ContentReactions::set_reactions(
                     RuntimeOrigin::signed(bob()),
                     item_id.clone(),
                     0,
-                    Emoji(0x1F600),
+                    bounded_vec![Emoji(0x1F600)],
                 ),
                 pallet_content_reactions::Error::<Runtime>::ItemRetracted
             );
 
             assert_noop!(
-                ContentReactions::remove_reaction(
+                ContentReactions::set_reactions(
                     RuntimeOrigin::signed(bob()),
                     item_id,
                     0,
-                    Emoji(0x1F600),
+                    bounded_vec![],
                 ),
                 pallet_content_reactions::Error::<Runtime>::ItemRetracted
             );

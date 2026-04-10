@@ -10,11 +10,11 @@ crate-type = ["cdylib", "rlib"]
 codec = { package = "parity-scale-codec", version = "3.7.5", default-features = false, features = ["derive"] }
 frame-support = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2603", default-features = false }
 frame-system = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2603", default-features = false }
-pallet-account-content = { git = "https://github.com/acuity-network/pallet-content", tag = "polkadot-stable2603", default-features = false }
-pallet-account-profile = { git = "https://github.com/acuity-network/pallet-content", tag = "polkadot-stable2603", default-features = false }
+pallet-account-content = { git = "https://github.com/acuity-network/pallet-content", branch = "polkadot-stable2603", default-features = false }
+pallet-account-profile = { git = "https://github.com/acuity-network/pallet-content", branch = "polkadot-stable2603", default-features = false }
 pallet-balances = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2603", default-features = false }
-pallet-content = { git = "https://github.com/acuity-network/pallet-content", tag = "polkadot-stable2603", default-features = false }
-pallet-content-reactions = { git = "https://github.com/acuity-network/pallet-content", tag = "polkadot-stable2603", default-features = false }
+pallet-content = { git = "https://github.com/acuity-network/pallet-content", branch = "polkadot-stable2603", default-features = false }
+pallet-content-reactions = { git = "https://github.com/acuity-network/pallet-content", branch = "polkadot-stable2603", default-features = false }
 pallet-utility = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2603", default-features = false }
 polkadot-sdk = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2603", default-features = false, features = [
     "runtime",
