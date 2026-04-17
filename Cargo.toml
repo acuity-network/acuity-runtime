@@ -36,6 +36,9 @@ serde_json = { version = "1.0.145", default-features = false, features = ["alloc
 [build-dependencies]
 polkadot-sdk = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2603", default-features = false, features = ["substrate-wasm-builder"] }
 
+[patch.crates-io]
+core2 = { git = "https://github.com/bbqsrc/core2", rev = "545e84bcb0f235b12e21351e0c69767958efe2a7" }
+
 [features]
 default = ["std"]
 runtime-benchmarks = [
