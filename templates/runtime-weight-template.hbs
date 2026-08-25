@@ -18,6 +18,12 @@
 #![allow(missing_docs)]
 
 use core::marker::PhantomData;
+// Bring the crate-root umbrella glob into scope so both the SDK pallets
+// (`frame_support`, `frame_system`, `pallet_balances`, ...) and the bare
+// content-pallet names (`pallet_content`, ...) resolve after the migration to
+// the crates.io polkadot-sdk umbrella. The SDK crates are only available as
+// `polkadot_sdk::*` re-exports now, not as bare direct deps.
+use crate::*;
 use frame_support::{traits::Get, weights::{constants::RocksDbWeight, Weight}};
 
 pub struct WeightInfo<T>(PhantomData<T>);
