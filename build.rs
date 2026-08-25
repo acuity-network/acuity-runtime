@@ -41,16 +41,48 @@ fn patch_frame_benchmarking_current_time() {
         return;
     };
 
+    let mut candidates: std::vec::Vec<PathBuf> = std::vec::Vec::new();
+
+    // Registry (crates.io) source — the current location of frame-benchmarking.
+    // Perversely, the no_std `current_time()` bug (using `std::time::SystemTime`)
+    // is still present in the published crate, so patch it here too.
+    let registry_src = cargo_home.join("registry").join("src");
+    if let Ok(index_dirs) = fs::read_dir(&registry_src) {
+        for index_dir in index_dirs.flatten() {
+            let index_path = index_dir.path();
+            if !index_path.is_dir() {
+                continue;
+            }
+            if let Ok(subdirs) = fs::read_dir(&index_path) {
+                for sub in subdirs.flatten() {
+                    let sub_path = sub.path();
+                    if !sub_path.is_dir() {
+                        continue;
+                    }
+                    let name = sub_path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+                    if name.starts_with("frame-benchmarking-") {
+                        candidates.push(sub_path.join("src").join("utils.rs"));
+                    }
+                }
+            }
+        }
+    }
+
+    // Git checkouts (pre-crates.io layout) — kept as a fallback.
     let checkouts = cargo_home.join("git").join("checkouts");
-    if !checkouts.exists() {
-        return;
+    if checkouts.exists() {
+        visit_dirs(&checkouts, &mut |dir| {
+            let candidate = dir.join("substrate/frame/benchmarking/src/utils.rs");
+            if candidate.exists() {
+                candidates.push(candidate);
+            }
+        });
     }
 
     let mut patched_any = false;
-    visit_dirs(&checkouts, &mut |dir| {
-        let candidate = dir.join("substrate/frame/benchmarking/src/utils.rs");
+    for candidate in candidates {
         if !candidate.exists() {
-            return;
+            continue;
         }
 
         if let Ok(content) = fs::read_to_string(&candidate) {
@@ -61,7 +93,7 @@ fn patch_frame_benchmarking_current_time() {
                 }
             }
         }
-    });
+    }
 
     if patched_any {
         println!("cargo:warning=Patched frame-benchmarking current_time for no_std wasm build");

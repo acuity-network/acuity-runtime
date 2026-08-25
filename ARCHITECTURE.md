@@ -2,7 +2,7 @@
 
 ## Overview
 
-Acuity Runtime is a **Substrate/Polkadot parachain runtime** written in Rust. It compiles to a Wasm blob for on-chain execution and a native `rlib` for tooling. The runtime targets `polkadot-stable2603` and uses the FRAME framework from the Polkadot SDK.
+Acuity Runtime is a **Substrate/Polkadot parachain runtime** written in Rust. It compiles to a Wasm blob for on-chain execution and a native `rlib` for tooling. The runtime uses the FRAME framework from the Polkadot SDK, sourced as the published crates.io `polkadot-sdk` umbrella (`2606.1.0`) rather than a git tag.
 
 ## Tech Stack
 
@@ -55,10 +55,10 @@ The runtime wires together 12 pallets in `src/lib.rs` via the `#[frame_construct
 | 4 | `Balances` | polkadot-sdk | Token balances, transfers, existential deposit |
 | 5 | `Sudo` | polkadot-sdk | Superuser key (dev mode) |
 | 6 | `TransactionPayment` | polkadot-sdk | Transaction fee computation |
-| 7 | `Content` | acuity-network/pallet-content | Publish, revise, retract content items (IPFS hashes) |
-| 8 | `AccountContent` | acuity-network/pallet-content | Maps accounts to owned content items |
-| 9 | `AccountProfile` | acuity-network/pallet-content | Sets an account's profile to a content item |
-| 10 | `ContentReactions` | acuity-network/pallet-content | Emoji reactions on content items (per revision) |
+| 7 | `Content` | choreographr/pallet-content | Publish, revise, retract content items (IPFS hashes) |
+| 8 | `AccountContent` | choreographr/pallet-content | Maps accounts to owned content items |
+| 9 | `AccountProfile` | choreographr/pallet-content | Sets an account's profile to a content item |
+| 10 | `ContentReactions` | choreographr/pallet-content | Emoji reactions on content items (per revision) |
 | 11 | `Utility` | polkadot-sdk | Batch/union dispatch of calls |
 
 ### Cross-Pallet Dependencies
