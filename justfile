@@ -64,3 +64,62 @@ benchmark:
 run: dev-node
 
 bench: benchmark
+
+# ── stable builds (escape hatch from the nightly default) ─────────────────────
+# The default toolchain is NIGHTLY (see rust-toolchain.toml), so every adhoc
+# `cargo` command — including `cargo build` / `cargo check` / `cargo test` —
+# automatically applies the fast per-profile `-Z` flags via [unstable]
+# profile-rustflags (see .cargo/config.toml). Those same nightly-only bits
+# HARD-BLOCK stable Cargo, so a stable build is an explicit opt-out: these
+# recipes run through scripts/build-stable.sh, which temporarily strips the
+# nightly-only config/manifest keys for one command and restores them after.
+
+# Stable build (the `profile` — release by default — plus any extra args)
+build-stable:
+    ./scripts/build-stable.sh build
+
+# Stable type-check (all targets, no linking)
+check-stable:
+    ./scripts/build-stable.sh check --all-targets
+
+# Stable tests (libtest)
+test-stable:
+    ./scripts/build-stable.sh test
+
+# ── testing (cargo-nextest, the primary runner) ──────────────────────────────
+# The default toolchain is NIGHTLY (see rust-toolchain.toml), so all of these
+# auto-apply the fast per-profile `-Z` flags. The `test-*` recipes use
+# cargo-nextest (parallel, every test in its own process); the cargo aliases are
+# defined in .cargo/config.toml. A libtest fallback is provided for the
+# nextest-less path, and `test-stable` covers the stable escape hatch.
+
+# Install the test runner (cargo-nextest)
+install-nextest:
+    cargo install cargo-nextest
+
+# Fail fast with a hint when cargo-nextest is missing (beats cargo's "no such
+# command: test-fast")
+_require-nextest:
+    if ((which cargo-nextest | length) == 0) { error make { msg: 'cargo-nextest is not installed — run `just install-nextest`' } }
+
+# Full unit suite (alias of test-fast)
+test: test-fast
+
+# Unit tests via nextest (parallel, every test in its own process; default
+# feature set)
+test-fast: _require-nextest
+    cargo test-fast
+
+# Unit tests with every optional feature on (runtime-benchmarks etc.)
+test-all-features: _require-nextest
+    cargo test-all-features
+
+# Unit tests via libtest (no nextest required)
+test-libtest:
+    cargo test
+
+# Release gate: format, lint, and the full unit suite.
+release-checks:
+    cargo fmt --check
+    cargo clippy --all-targets --all-features -- -D warnings
+    just test-fast

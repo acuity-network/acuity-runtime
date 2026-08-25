@@ -1,4 +1,13 @@
 Safety note:
 - Never delete `.git/index.lock` under this workspace.
 
+## Toolchain
+
+- The default toolchain is NIGHTLY (see `rust-toolchain.toml`), so every adhoc `cargo` command auto-applies the fast per-profile `-Z` flags via the `[unstable] profile-rustflags` opt-in in `.cargo/config.toml`. Do not pass `+nightly` or set `RUSTFLAGS` — they apply automatically.
+- A STABLE build is an explicit opt-out: `just build-stable` / `check-stable` / `test-stable` (via `scripts/build-stable.sh`), which temporarily strips the nightly-only keys and restores them. Do not hand-edit `Cargo.toml` or `.cargo/config.toml` to get stable; use the script.
+
+## Testing
+
+- Unit tests live in `src/lib.rs` (`#[cfg(test)] mod tests`) and run via cargo-nextest (the `/just test-fast` / `cargo test-fast` aliases in `.cargo/config.toml`). A libtest fallback exists at `just test-libtest`.
+
 Architecture: See [ARCHITECTURE.md](./ARCHITECTURE.md) for full codebase documentation.

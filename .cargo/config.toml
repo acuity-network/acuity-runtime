@@ -1,0 +1,29 @@
+# Per-profile rustflags (unstable Cargo feature, nightly-only). This opt-in is
+# what lets the root Cargo.toml scope `-Z` compiler flags by profile —
+# `-Zshare-generics=yes` and `--jobs-frontend=0` in [profile.dev] — so EVERY
+# adhoc `cargo` command (including `cargo build`, `cargo check`, `cargo test`,
+# `cargo nextest run`) automatically builds fast under the nightly default
+# toolchain (see rust-toolchain.toml). An LLM/agent issuing raw `cargo` commands
+# needs to know nothing: the flags just apply.
+#
+# This block, plus the per-profile `rustflags` keys it enables, HARD-BLOCKS
+# stable Cargo. Stable builds are therefore an explicit opt-out, run through
+# scripts/build-stable.sh (`just build-stable` / `check-stable` / `test-stable`),
+# which temporarily strips these nightly-only bits, runs `cargo +stable ...`,
+# and restores them. Note: profile rustflags replace `[build]` rustflags but
+# concatenate with `[target.'cfg(...)']` rustflags, so per-machine linker flags
+# still apply.
+[unstable]
+profile-rustflags = true
+
+# cargo-nextest convenience aliases (the parallel test runner). They mirror the
+# libtest split (`cargo test` = unit tests) while running every test in its own
+# process, in parallel, across all cores. The runtime's tests are `#[cfg(test)]`
+# unit tests in src/lib.rs (a single crate, not a workspace), so the aliases
+# omit `--workspace`; `nextest run` defaults to the current package. The default
+# features are `std`, so:
+# - `test-fast` runs unit tests on the default feature set (the quick gate).
+# - `test-all-features` turns on every optional feature (runtime-benchmarks).
+[alias]
+test-fast = "nextest run"                  # unit tests, default features
+test-all-features = "nextest run --all-features"  # unit tests, every feature on
